@@ -65,9 +65,8 @@ def tqdm(*args, **kwargs):
             tqdm_base._decr_instances(instance)
     return tqdm_base(*args, **kwargs)
 
-cuda = False
-device = 'cuda' if cuda else 'cpu'
-if not torch.cuda.is_available() and cuda:
+device = 'cuda' if cfg.cuda else 'cpu'
+if not torch.cuda.is_available() and cfg.cuda:
     device = 'cpu'
     print("WARNING: cuda was requested but is not available, using cpu instead.")
 print(f'Using device: {device}')
