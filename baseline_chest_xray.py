@@ -272,7 +272,7 @@ def train_epoch(epoch, model, device, train_loader, optimizer, criterion, limit=
         loss = loss.sum()
         loss.backward()
 
-        avg_loss.append(loss.detach())
+        avg_loss.append(loss.detach().cpu().numpy())
         t.set_description(f'Epoch {epoch + 1} - Train - Loss = {torch.as_tensor(avg_loss).mean():4.4f}')
         adaptive_clip_grad(model.parameters(), clip_factor=0.01, eps=1e-3, norm_type=2.0)
         optimizer.step()
@@ -313,12 +313,12 @@ def valid_epoch(name, epoch, model, device, data_loader, criterion, limit=None):
                 if len(task_target) > 0:
                     loss += criterion(task_output.double(), task_target.double())
                 
-                task_outputs[task].append(task_output.detach())
-                task_targets[task].append(task_target.detach())
+                task_outputs[task].append(task_output.detach().cpu().numpy())
+                task_targets[task].append(task_target.detach().cpu().numpy())
 
             loss = loss.sum()
             
-            avg_loss.append(loss.detach())
+            avg_loss.append(loss.detach().cpu().numpy())
             t.set_description(f'Epoch {epoch + 1} - {name} - Loss = {torch.as_tensor(avg_loss).mean():4.4f}')
             
         for task in range(len(task_targets)):
