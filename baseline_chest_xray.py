@@ -231,7 +231,7 @@ test_loader = DataLoader(OPENI_dataset,
 model = densenet121(num_classes=len(datasets.default_pathologies))
 model = model.to(device)
 
-optimizer = MADGRAD( model.parameters(), lr=cfg.lr)
+optimizer = MADGRAD( model.parameters(), lr=cfg.lr, weight_decay=1e-5)
 criterion = torch.nn.BCEWithLogitsLoss()
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, 0.001, epochs=cfg.num_epochs, steps_per_epoch=len(train_loader))  
 
