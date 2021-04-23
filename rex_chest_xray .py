@@ -528,6 +528,7 @@ def inference(name, model, device, data_loader, criterion, limit=None):
 
 model = densenet121(num_classes=len(datasets.default_pathologies))
 model.load_state_dict(torch.load("rex_chest_xray/nih_mc_cx-densenet121-valid-best.pt").state_dict())
+model = model.to(device)
 
 test_auc, test_loss, task_aucs = inference(name='Test',
                                          model=model,
