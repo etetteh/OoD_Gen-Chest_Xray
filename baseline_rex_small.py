@@ -524,7 +524,7 @@ test_auc, test_loss, task_aucs = valid_test_epoch(name='Test',
                                                   device=device, 
                                                   data_loader=test_loader, 
                                                   criterion=criterion,
-                                                  limit=cfg.num_batches)
+                                                  limit=None)
 
 print(f"Average AUC for all pathologies {test_auc:4.4f}")
 print(f"Test loss: {test_loss:4.4f}")                                 
