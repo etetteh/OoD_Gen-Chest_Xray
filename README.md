@@ -14,21 +14,20 @@ The dataset names are condensed as short strings: `"nih"`= NIH ChestX-ray8 datas
 For each setting, we compute the ROC-AUC for the following chest x-ray pathologies (labels): Cardiomegaly, Pneumonia, Effusion, Edema, Atelectasis, Consolidation, and Pneumothorax.
 
 For each split, you train on two (2) datasets, validate on one (1) and test on the remaining one (1). \
-The [baseline_rex.py](https://github.com/etetteh/OoD_Gen-Chest_Xray-REx/blob/main/baseline_rex.py) file contains code to run both our baseline and REx models.
+The [chest.py](https://github.com/etetteh/OoD_Gen-Chest_Xray-REx/blob/main/chest.py) file contains code to run both our baseline and REx models.
+
+To **finetune** or perform **feature extraction** with ImageNet weights pass the '--pretrained' and '--feat_extract' arguments **respectively**
 
 ### Train Using Baseline Model
-To train the baseline model on the first split, and validate on the MIMIC-CXR dataset, run the following code:
+To train a resnet-50 baseline model from scratch on the first split, and validate on the MIMIC-CXR dataset, run the following code:
 ```
-python baseline_rex.py --split=0 --valid_data="mc"
+python chest.py --baseline --arch resnet50 --split 0 --valid_data mc
 ```
 Note that for the first split, PadChest is automatically selected as the `test_data`, when you pass MIMIC-CXR as the validation data, and vice versa.
 
 ### Train Using REx Model
-To train the REx model, we run the same code above with some addtional arguments. We first turn off the baseline approach by passing the argument 
-`--baseline=False`, and also specify the amount of penalty weight (float in multiples of 10) to use by passing `--penalty_weight=<penalty weight amount>`. Example: 
+To train the REx model, we run the same code above with some addtional arguments. We first turn off the '--baseline' argument, and also specify the amount of penalty weight (float in multiples of 10) to use by `--penalty_weight=<penalty weight amount>`, and always pass '--weight_decay=0.0' Example: 
 ```
-python baseline_rex.py --baseline=False --penalty_weight=100.0 --split=0 --valid_data="mc"
+python chest.py --arch resnet50 --weight_decay=0.0 --penalty_weight=100.0 --split 0 --valid_data mc
 ```
-
-## Something smaller? Three (3) Training Settings with Varying Pathologies
-Coming Soon ------>
+If no model architecture is specified, the code trains all the following architectures: `resnet50`, `shufflenet_v2_x0_5`, `shufflenet_v2_x1_0`, and `densenet121`.
