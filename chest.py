@@ -35,8 +35,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(description='X-RAY Pathology Detection')
 parser.add_argument('--seed', type=int, default=0, help='')
 parser.add_argument('--dataset_dir', type=str, default="./data/")
-parser.add_argument('--model_name', type=str, default="resnet50")
-parser.add_argument('--lr', type=float, default=0.01, help='')
+parser.add_argument('--lr', type=float, default=0.001, help='')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='')
 parser.add_argument('--num_epochs', type=int, default=200, help='')
 
@@ -45,13 +44,14 @@ parser.add_argument('--valid_data', type=str, default="mc", help='')
 parser.add_argument('--baseline', action='store_true', default=False)
 parser.add_argument('--pretrained', action='store_true', default=False, help='')
 parser.add_argument('--feat_extract', action='store_true', default=False, help='')
+parser.add_argument('--arch', nargs="+", default=None, help='Architecture of model')
 
 ### Data loader
 parser.add_argument('--cuda', type=bool, default=True, help='')
 parser.add_argument('--batch_size', type=int, default=64, help='')
 parser.add_argument('--shuffle', type=bool, default=True, help='')
-parser.add_argument('--num_workers', type=int, default=4, help='')
-parser.add_argument('--num_batches', type=int, default=300, help='')
+parser.add_argument('--num_workers', type=int, default=0, help='')
+parser.add_argument('--num_batches', type=int, default=430, help='')
 
 ### Data Augmentation                  
 parser.add_argument('--data_aug_rot', type=int, default=45, help='')
@@ -67,13 +67,6 @@ cfg = parser.parse_args()
 print(cfg) 
 
 cfg.penalty_anneal_iters = cfg.num_batches//5
-
-if cfg.baseline:
-    print("\n Training Baseline Model \n")
-    output_dir = "baseline_split-" + str(cfg.split) + "_" + cfg.model_name + "_valid-" + cfg.valid_data + "/"
-else:
-    print("\n Training REx Model \n")
-    output_dir = "rex_split-" +  str(cfg.split) + "_" + cfg.model_name + "_valid-" + cfg.valid_data + "_pen-" + str(int(cfg.penalty_weight)) + "/"
 
 def tqdm(*args, **kwargs):
     if hasattr(tqdm_base, '_instances'):
@@ -241,7 +234,7 @@ for train_loader in train_loaders:
                            pin_memory=True,
                            drop_last=True)
             train_loader.insert(0, tr_l)
-    
+
 valid_loader = DataLoader(valid_data,
                        batch_size=cfg.batch_size,
                        shuffle=True,
@@ -263,28 +256,43 @@ def set_parameter_requires_grad(model, feature_extracting):
         for param in model.parameters():
             param.requires_grad = False
 
-if 'densenet' in cfg.model_name:
-    model = torchvision.models.__dict__[cfg.model_name](pretrained=cfg.pretrained)
-    set_parameter_requires_grad(model, feature_extracting=cfg.feat_extract)
-    model.features.conv0 = torch.nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-    num_ftrs = model.classifier.in_features
-    model.classifier = torch.nn.Linear(num_ftrs, len(xrv.datasets.default_pathologies))
-elif 'shufflenet' in cfg.model_name:
-    model = torchvision.models.__dict__[cfg.model_name](pretrained=cfg.pretrained)
-    set_parameter_requires_grad(model, feature_extracting=cfg.feat_extract)
-    model.conv1[0] = torch.nn.Conv2d(1, 24, kernel_size=3, stride=2, padding=1, bias=False)
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, len(xrv.datasets.default_pathologies))
-elif 'resnet' in cfg.model_name:
-    model = torchvision.models.__dict__[cfg.model_name](pretrained=cfg.pretrained)
-    set_parameter_requires_grad(model, feature_extracting=cfg.feat_extract)
-    model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, len(xrv.datasets.default_pathologies))
-else:
-    print(f'Model not included in this work')
+def get_model_inputimg(model_name, num_classes):
+    model = None
+    input_size = 0
+    
+    if cfg.feat_extract and cfg.pretrained:
+        print(f"\n\n=> Using pre-trained model {model_name} as feature extractor")
+    elif cfg.pretrained and not cfg.feat_extract:
+        print(f"\n\n=> Using pre-trained model {model_name} for finetuning")
+    else:
+        print(f"\n\n=> Creating model {model_name}")
+    
+    if "resnet" in model_name:
+        model = torchvision.models.__dict__[model_name](pretrained=cfg.pretrained)
+        set_parameter_requires_grad(model, cfg.feat_extract)
+        model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(in_features=num_ftrs, out_features=num_classes)
+        
+    elif "shufflenet" in model_name:
+        model = torchvision.models.__dict__[model_name](pretrained=cfg.pretrained)
+        set_parameter_requires_grad(model, cfg.feat_extract)
+        model.conv1[0] = torch.nn.Conv2d(1, 24, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(in_features=num_ftrs, out_features=num_classes)
 
-
+    elif "densenet" in model_name:
+        model = torchvision.models.__dict__[model_name](pretrained=cfg.pretrained)
+        set_parameter_requires_grad(model, cfg.feat_extract)
+        model.features.conv0 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        num_ftrs = model.classifier.in_features
+        model.classifier = torch.nn.Linear(in_features=num_ftrs, out_features=num_classes)
+    else:
+        print(f"Invalid model name. Choose one of the models defined for this work")
+        exit()
+        
+    return model
+    
 ######################################################### Train Function ############################################
 
 def train_baseline(epoch, model, device, train_loader, optimizer, criterion, limit=None):
@@ -305,8 +313,8 @@ def train_baseline(epoch, model, device, train_loader, optimizer, criterion, lim
             
         optimizer.zero_grad()
         
-        images = samples["img"].float().to(device)
-        targets = samples["lab"].to(device)
+        images = samples["img"].float().to(device)#.cuda()
+        targets = samples["lab"].to(device)#.cuda()
         outputs = model(images)
         
         loss = torch.zeros(1).to(device).float()
@@ -359,7 +367,7 @@ def train_rex(num_batches, epoch, model, device, train_loaders, criterion, optim
             
             dataloader_iterator = iter(train_loader[0])
             sample = next(dataloader_iterator)
-            image, target = sample["img"].float().to(device), sample["lab"].to(device)
+            image, target = sample["img"].float().to(device), sample["lab"].to(device)#.cuda()
             
             outputs = model(image)
 
@@ -368,7 +376,7 @@ def train_rex(num_batches, epoch, model, device, train_loaders, criterion, optim
         train_nll = torch.stack([train_loaders[0][step]['loss'], train_loaders[1][step]['loss']]).mean()
 
         if cfg.cuda:
-            weight_norm = torch.as_tensor(0., device=device)
+            weight_norm = torch.tensor(0.).to(device)#.cuda()
         else:
             weight_norm = torch.as_tensor(0.)
 
@@ -396,7 +404,7 @@ def train_rex(num_batches, epoch, model, device, train_loaders, criterion, optim
         if penalty_weight > 1.0:
             loss /= penalty_weight
         
-        loss.backward(retain_graph=True)
+        loss.backward()
         
         avg_loss.append(train_nll.detach().cpu().numpy())
         t.set_description(f'Epoch {epoch + 1} - Train - Loss = {np.mean(avg_loss):4.4f}')
@@ -425,8 +433,8 @@ def valid_test_epoch(name, epoch, model, device, data_loader, criterion, limit=N
                 print("breaking out")
                 break
             
-            images = samples["img"].to(device)
-            targets = samples["lab"].to(device)
+            images = samples["img"].to(device)#.cuda()
+            targets = samples["lab"].to(device)#.cuda()
 
             outputs = model(images)
             
@@ -474,8 +482,8 @@ def valid_test_epoch(name, epoch, model, device, data_loader, criterion, limit=N
 
 
 ######################################################## Train ########################################################
-def train(model, num_epochs):
-    dataset_name = cfg.model_name + "-" + "valid"
+def train(model, model_name, output_dir, num_epochs):
+    dataset_name = model_name + "-" + "valid"
 
     print(f'Using device: {device}')
     print(f"Output directory: {output_dir}")
@@ -494,22 +502,27 @@ def train(model, num_epochs):
         torch.backends.cudnn.benchmark = False
 
 
-    params_to_update = []
-    for name, param in model.named_parameters():
-        if param.requires_grad == True:
-            params_to_update.append(param)
-            print("\t",name)
+    params_to_update = model.parameters()
+    if cfg.feat_extract:
+        params_to_update = []
+        for name, param in model.named_parameters():
+            if param.requires_grad == True:
+                params_to_update.append(param)
+                print("\t",name)
+    else:
+        print(f"Updating all parameters")
+        
 
     # Optimizer
     optimizer = torch.optim.Adam(params_to_update, lr=cfg.lr, weight_decay=cfg.weight_decay, amsgrad=True)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
-                                                       patience=10,  
-                                                       verbose=True, 
-                                                       factor=0.3, 
-                                                       threshold=0.001,
-                                                       min_lr=0.00001)
+    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+     #                                                  patience=10,  
+      #                                                 verbose=True, 
+       #                                                factor=0.3, 
+        #                                               threshold=0.001,
+         #                                              min_lr=0.00001)
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.BCEWithLogitsLoss().to(device)
 
     # Checkpointing
     start_epoch = 0
@@ -565,9 +578,9 @@ def train(model, num_epochs):
                                          data_loader=valid_loader,
                                          criterion=criterion,
                                          limit=cfg.num_batches//2.5)
-        scheduler.step(valid_loss)
+        #scheduler.step(valid_loss)
         
-        tv_filename = output_dir.strip("/") + "_trainVal_results.csv"
+        tv_filename = output_dir + output_dir.strip("/") + "_trainVal_results.csv"
 
         if os.path.exists(tv_filename):
             with open(tv_filename, 'a+') as csvfile:
@@ -613,47 +626,63 @@ def train(model, num_epochs):
 
     return metrics, best_metric,
 
-metrics, best_metric, = train(model, num_epochs=cfg.num_epochs)
-print(f"Best validation AUC: {best_metric:4.4f}")
+if cfg.arch is not None:
+    model_zoo = cfg.arch
+else:
+    model_zoo = sorted(['resnet50', 'shufflenet_v2_x0_5', 'shufflenet_v2_x1_0', 'densenet121',])
+
+for model_name in model_zoo:
+    model = get_model_inputimg(model_name, num_classes=len(xrv.datasets.default_pathologies)) 
+    model = model.to(device)#.cuda()
+
+    if cfg.baseline:
+        print("\n Training Baseline Model \n")
+        output_dir = "baseline_split-" + str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
+    else:
+        print("\n Training REx Model \n")
+        output_dir = "rex_split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "_pen-" + str(int(cfg.penalty_weight)) + "/"
+        
+    metrics, best_metric, = train(model, model_name, output_dir, num_epochs=cfg.num_epochs)
+    print(f"Best validation AUC: {best_metric:4.4f}")
 
 
-###################################### Test ######################################
-best_valid_state = output_dir + cfg.model_name + '-valid-best.pt'
+    ###################################### Test ######################################
+    best_valid_state = output_dir + model_name + '-valid-best.pt'
 
-model.load_state_dict(torch.load(best_valid_state).state_dict())
-model = model.to(device)
+    model.load_state_dict(torch.load(best_valid_state).state_dict())
+    model = model.to(device)
 
-criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
 
-test_auc, test_loss, task_aucs = valid_test_epoch(name='Test', 
-                                                  epoch=None, 
-                                                  model=model, 
-                                                  device=device, 
-                                                  data_loader=test_loader, 
-                                                  criterion=criterion,
-                                                  limit=cfg.num_batches//2)
+    test_auc, test_loss, task_aucs = valid_test_epoch(name='Test', 
+                                                      epoch=None, 
+                                                      model=model, 
+                                                      device=device, 
+                                                      data_loader=test_loader, 
+                                                      criterion=criterion,
+                                                      limit=cfg.num_batches//2)
 
-print(f"Average AUC for all pathologies {test_auc:4.4f}")
-print(f"Test loss: {test_loss:4.4f}")                                 
-print(f"AUC for each task {[round(x, 4) for x in task_aucs]}")
+    print(f"Average AUC for all pathologies {test_auc:4.4f}")
+    print(f"Test loss: {test_loss:4.4f}")                                 
+    print(f"AUC for each task {[round(x, 4) for x in task_aucs]}")
 
-test_filename = output_dir.strip("/") + "_test_results.csv"
-            
-with open(test_filename, 'w') as csvfile:
-    field_names = ['Test_loss', 'Test_AVG_AUC',
-                   'Cardiomegaly',
-                   'Effusion',
-                   'Edema',
-                   'Consolidation',
-                   ]
-    writer = csv.DictWriter(csvfile, fieldnames=field_names)
-    
-    writer.writeheader()
-    writer.writerow({
-                     'Test_loss': round(test_loss, 4), 
-                     'Test_AVG_AUC': round(test_auc, 4), 
-                     'Cardiomegaly': round(task_aucs[0], 4),
-                     'Effusion': round(task_aucs[1], 4),
-                     'Edema': round(task_aucs[2], 4),
-                     'Consolidation': round(task_aucs[3], 4),
-                    })
+    test_filename = output_dir + output_dir.strip("/") + "_test_results.csv"
+
+    with open(test_filename, 'w') as csvfile:
+        field_names = ['Test_loss', 'Test_AVG_AUC',
+                       'Cardiomegaly',
+                       'Effusion',
+                       'Edema',
+                       'Consolidation',
+                       ]
+        writer = csv.DictWriter(csvfile, fieldnames=field_names)
+
+        writer.writeheader()
+        writer.writerow({
+                         'Test_loss': round(test_loss, 4), 
+                         'Test_AVG_AUC': round(test_auc, 4), 
+                         'Cardiomegaly': round(task_aucs[0], 4),
+                         'Effusion': round(task_aucs[1], 4),
+                         'Edema': round(task_aucs[2], 4),
+                         'Consolidation': round(task_aucs[3], 4),
+                        })
