@@ -42,7 +42,7 @@ parser.add_argument('--cuda', type=bool, default=True, help='')
 parser.add_argument('--batch_size', type=int, default=64, help='')
 parser.add_argument('--shuffle', type=bool, default=False, help='')
 parser.add_argument('--num_workers', type=int, default=4, help='')
-parser.add_argument('--num_batches', type=int, default=290, help='')
+parser.add_argument('--num_batches', type=int, default=230, help='')
 
 ### Data Augmentation                  
 parser.add_argument('--data_aug_rot', type=int, default=45, help='')
@@ -70,13 +70,15 @@ print(f'Using device: {device}')
 
 transforms = torchvision.transforms.Compose([datasets.XRayCenterCrop(), datasets.XRayResizer(112)])
 
-datasets.default_pathologies = ['Cardiomegaly',
-                             'Pneumonia',
+datasets.default_pathologies = [
+                             'Cardiomegaly',
+                             #'Pneumonia',
                              'Effusion',
                              'Edema',
-                             'Atelectasis',
+                             #'Atelectasis',
                              'Consolidation',
-                             'Pneumothorax']
+                             #'Pneumothorax'
+                             ]
 
 
 if "nih" in cfg.dataset_name:
@@ -238,7 +240,8 @@ test_auc, test_loss, task_aucs = inference(name=cfg.name,
                                          model=model,
                                          device=device,
                                          data_loader=test_loader,
-                                         criterion=criterion)
+                                         criterion=criterion,
+                                         limit=cfg.num_batches//2)
 
 print(f"Average AUC for all pathologies {test_auc:4.4f}")
 print(f"Test loss: {test_loss:4.4f}")                                 
