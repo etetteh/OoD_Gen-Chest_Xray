@@ -16,7 +16,7 @@ For each setting, we compute the ROC-AUC for the following chest x-ray pathologi
 For each split, you train on two (2) datasets, validate on one (1) and test on the remaining one (1). \
 The [chest.py](https://github.com/etetteh/OoD_Gen-Chest_Xray-REx/blob/main/chest.py) file contains code to run both our baseline and REx models.
 
-To **finetune** or perform **feature extraction** with ImageNet weights pass the '--pretrained' and '--feat_extract' arguments **respectively**
+To **finetune** or perform **feature extraction** with ImageNet weights pass the `--pretrained` and `--feat_extract` arguments **respectively**
 
 ### Train Using Baseline Model
 To train a resnet-50 baseline model from scratch on the first split, and validate on the MIMIC-CXR dataset, run the following code:
@@ -26,7 +26,7 @@ python chest.py --baseline --arch resnet50 --split 0 --valid_data mc
 Note that for the first split, PadChest is automatically selected as the `test_data`, when you pass MIMIC-CXR as the validation data, and vice versa.
 
 ### Train Using REx Model
-To train the REx model, we run the same code above with some addtional arguments. We first turn off the '--baseline' argument, and also specify the amount of penalty weight (float in multiples of 10) to use by `--penalty_weight=<penalty weight amount>`, and always pass '--weight_decay=0.0' Example: 
+To train the REx model, we run the same code above with some addtional arguments. We first turn off the `--baseline` argument, and also specify the amount of penalty weight (float in multiples of 10) to use by `--penalty_weight=<penalty weight amount>`, and always pass `--weight_decay=0.0` Example: 
 ```
 python chest.py --arch resnet50 --weight_decay=0.0 --penalty_weight=100.0 --split 0 --valid_data mc
 ```
