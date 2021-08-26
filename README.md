@@ -38,3 +38,10 @@ To train the **REx** model, we run the same code above with some addtional argum
 python chestREx.py --arch densenet121 --pretrained --weight_decay=0.0 --penalty_weight=100.0 --split 0 --valid_data mc --seed 0
 ```
 If no model architecture is specified, the code trains all the following architectures: `resnet50`, `shufflenet_v2_x0_5`, `shufflenet_v2_x1_0`, and `densenet121`.
+
+### Inference using the XRV model
+To perform inference using the DenseNet model with pretrained weights from [torchxrayvision](https://github.com/mlmed/torchxrayvision), run the following line of code:
+```
+python xrv_test.py --dataset_name pc --seed 0
+```
+Note that you can pass any of the arguments `pc`, `mc`, `cx` or `nih` to `--dataset_name` to run inference on PadChest, MIMIC-CXR, CheXpert and ChestX-Ray8 respectively. 
