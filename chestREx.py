@@ -47,6 +47,8 @@ parser.add_argument('--pretrained', action='store_true', default=False, help='')
 parser.add_argument('--feat_extract', action='store_true', default=False, help='')
 parser.add_argument('--arch', nargs="+", default=None, help='Architecture of model')
 
+parser.add_argument('--merge_train', action='store_true', default=False, help='')
+
 ### Data loader
 parser.add_argument('--cuda', type=bool, default=True, help='')
 parser.add_argument('--batch_size', type=int, default=64, help='')
@@ -210,6 +212,10 @@ if cfg.split == 5:
         test_data = CHEX_dataset
         test_data.data_aug = None        
 
+if cfg.merge_train:
+    dmerge = xrv.datasets.Merge_Dataset(train_datas)
+    train_datas = [dmerge, dmerge]
+        
 np.random.seed(cfg.seed)
 random.seed(cfg.seed)
 torch.manual_seed(cfg.seed)
