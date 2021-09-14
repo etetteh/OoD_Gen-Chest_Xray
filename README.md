@@ -37,7 +37,7 @@ To train the **Balanced Mini-Batching** model, we run the same code above with s
 ```
 python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --valid_data mc --seed 0
 ```
-If no model architecture is specified, the code trains all the following architectures: `resnet50`, `shufflenet_v2_x0_5`, `shufflenet_v2_x1_0`, and `densenet121`.
+If no model architecture is specified, the code trains all the following architectures: `resnet50`, and `densenet121`.
 
 ### Inference using the XRV model
 To perform inference using the DenseNet model with pretrained weights from [torchxrayvision](https://github.com/mlmed/torchxrayvision), run the following line of code:
