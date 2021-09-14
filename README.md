@@ -33,9 +33,9 @@ python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --v
 and always pass `--weight_decay=0.0` 
 
 ### Train Using REx Model
-To train the **REx** model, we run the same code above with some addtional arguments. We first switch the argument from `--baseline` to `--rex`, and also specify the amount of penalty weight (float in multiples of 10) to use by `--penalty_weight=<penalty weight amount>`, and always pass `--weight_decay=0.0` Example: 
+To train the **Balanced Mini-Batching** model, we run the same code above with some addtional arguments. We first turn off the argument `--baseline` , and always pass `--weight_decay=0.0` Example: 
 ```
-python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --penalty_weight=100.0 --split 0 --valid_data mc --seed 0
+python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --valid_data mc --seed 0
 ```
 If no model architecture is specified, the code trains all the following architectures: `resnet50`, `shufflenet_v2_x0_5`, `shufflenet_v2_x1_0`, and `densenet121`.
 
