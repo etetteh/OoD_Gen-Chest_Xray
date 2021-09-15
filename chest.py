@@ -17,7 +17,6 @@ from glob import glob
 from os.path import exists, join
 from tqdm import tqdm as tqdm_base
 
-import timm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -30,7 +29,7 @@ from sklearn.metrics import roc_auc_score, accuracy_score
 
 import torchxrayvision as xrv
 from merger import Merge_Dataset
-from timm.optim import AdamP
+
 
 parser = argparse.ArgumentParser(description='X-RAY Pathology Detection')
 parser.add_argument('--seed', type=int, default=0, help='')
@@ -50,10 +49,10 @@ parser.add_argument('--arch', nargs="+", default=None, help='Architecture of mod
 
 ### Data loader
 parser.add_argument('--cuda', type=bool, default=True, help='')
-parser.add_argument('--batch_size', type=int, default=128, help='')
+parser.add_argument('--batch_size', type=int, default=64, help='')
 parser.add_argument('--shuffle', type=bool, default=True, help='')
 parser.add_argument('--num_workers', type=int, default=0, help='')
-parser.add_argument('--num_batches', type=int, default=215, help='')
+parser.add_argument('--num_batches', type=int, default=430, help='')
 parser.add_argument('--num_epochs', type=int, default=200, help='')
 
 ### Data Augmentation                  
@@ -63,20 +62,6 @@ parser.add_argument('--data_aug_scale', type=float, default=0.15, help='')
 
 cfg = parser.parse_args()
 print(cfg) 
-
-np.random.seed(cfg.seed)
-random.seed(cfg.seed)
-torch.manual_seed(cfg.seed)
-g = torch.Generator()
-g.manual_seed(cfg.seed)
-
-def seed_worker(worker_id):
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
-
-
-
 
 def tqdm(*args, **kwargs):
     if hasattr(tqdm_base, '_instances'):
@@ -234,7 +219,6 @@ if cfg.baseline:
                        batch_size=cfg.batch_size,
                        shuffle=True,
                        num_workers=cfg.num_workers, 
-                       worker_init_fn=seed_worker,
                        pin_memory=True,
                        drop_last=True)
     train_loader[0].insert(0, dataloader)
@@ -247,7 +231,6 @@ else:
                                batch_size=cfg.batch_size,
                                shuffle=True,
                                num_workers=cfg.num_workers,
-                               worker_init_fn=seed_worker,
                                pin_memory=True,
                                drop_last=True)
                 dataloader.insert(0, tr_l)
@@ -256,7 +239,6 @@ valid_loader = DataLoader(valid_data,
                        batch_size=cfg.batch_size,
                        shuffle=True,
                        num_workers=cfg.num_workers,
-                       worker_init_fn=seed_worker,
                        pin_memory=True,
                        drop_last=True)
 
@@ -264,7 +246,6 @@ test_loader = DataLoader(test_data,
                        batch_size=cfg.batch_size,
                        shuffle=False,
                        num_workers=cfg.num_workers,
-                       worker_init_fn=seed_worker,
                        pin_memory=True,
                        drop_last=False)
 
@@ -335,7 +316,7 @@ def train_epoch(num_batches, epoch, model, device, train_loader, criterion, opti
             loss += (loss1 + loss2)
             loss += 1e-5 * weight_norm
         
-        loss.backward(retain_graph=True)
+        loss.backward()
         optimizer.step()
         
         avg_loss.append(train_nll.detach().cpu().numpy())
@@ -585,7 +566,7 @@ for model_name in model_zoo:
         output_dir = "baseline_split-" + str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
     else:
         print("\n Training REx Baseline Model \n")
-        output_dir = "rex_baseline_split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
+        output_dir = "bmbs_split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
         
     metrics, best_metric, = main(model, model_name, output_dir, num_epochs=cfg.num_epochs)
     print(f"Best validation AUC: {best_metric:4.4f}")
