@@ -542,7 +542,7 @@ for model_name in model_zoo:
     model = model.to(device)
 
     print("\n Training Model \n")
-    output_dir = str(cfg.merge_train) + "split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
+    output_dir = str(cfg.merge_train) + "_split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
         
     metrics, best_metric, = main(model, model_name, output_dir, num_epochs=cfg.num_epochs)
     print(f"Best validation AUC: {best_metric:4.4f}")
