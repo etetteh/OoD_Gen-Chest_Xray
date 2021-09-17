@@ -1,4 +1,4 @@
-# OoD_Gen-Chest_Xray-REx
+# OoD_Gen-Chest_Xray
 Out-of-Distribution Generalization of Chest X-ray Using Risk Extrapolation
 
 ## Requirements (Installations)
@@ -14,7 +14,7 @@ The dataset names are condensed as short strings: `"nih"`= NIH ChestX-ray8 datas
 For each setting, we compute the ROC-AUC for the following chest x-ray pathologies (labels): Cardiomegaly, Pneumonia, Effusion, Edema, Atelectasis, Consolidation, and Pneumothorax.
 
 For each split, you train on two (2) datasets, validate on one (1) and test on the remaining one (1). \
-The [chest.py](https://github.com/etetteh/OoD_Gen-Chest_Xray-REx/blob/main/chest.py) file contains code to run both our baseline and REx models.
+The [chest.py](https://github.com/etetteh/OoD_Gen-Chest_Xray/blob/main/chest.py) file contains code to run the models in this study.
 
 To **finetune** or perform **feature extraction** with ImageNet weights pass the `--pretrained` and `--feat_extract` arguments **respectively**
 
@@ -25,18 +25,13 @@ python chest.py --baseline --arch densenet121 --pretrained --split 0 --valid_dat
 ```
 Note that for the first split, PadChest is automatically selected as the `test_data`, when you pass MIMIC-CXR as the validation data, and vice versa.
 
-### Train Using Baseline Model (Balanced Mini-Batch Sampling)
-To train a DenseNet-121 **Baseline REx-Off** model by fine-tuning on the first split, and validate on the MIMIC-CXR dataset, with seed=0 run the following code:
+### Train Balanced Mini-Batch Sampling
+To train a DenseNet-121 **Balanced Mini-Batch Sampling** model by fine-tuning on the first split, and validate on the MIMIC-CXR dataset, with seed=0 run the following code:
 ```
 python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --valid_data mc --seed 0
 ```
 and always pass `--weight_decay=0.0` 
 
-### Train Using REx Model
-To train the **Balanced Mini-Batching** model, we run the same code above with some addtional arguments. We first turn off the argument `--baseline` , and always pass `--weight_decay=0.0` Example: 
-```
-python chest.py --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --valid_data mc --seed 0
-```
 If no model architecture is specified, the code trains all the following architectures: `resnet50`, and `densenet121`.
 
 ### Inference using the XRV model
