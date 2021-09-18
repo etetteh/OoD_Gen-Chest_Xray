@@ -21,7 +21,7 @@ To **finetune** or perform **feature extraction** with ImageNet weights pass the
 ### Train Using Baseline Model (Merged Datasets)
 To train a DenseNet-121 **Baseline** model by fine-tuning on the first split, and validate on the MIMIC-CXR dataset, with seed=0 run the following code:
 ```
-python chest.py --baseline --arch densenet121 --pretrained --split 0 --valid_data mc --seed 0
+python chest.py --merge_train --arch densenet121 --pretrained --weight_decay=0.0 --split 0 --valid_data mc --seed 0
 ```
 Note that for the first split, PadChest is automatically selected as the `test_data`, when you pass MIMIC-CXR as the validation data, and vice versa.
 
