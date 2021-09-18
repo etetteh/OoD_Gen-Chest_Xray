@@ -33,7 +33,6 @@ import torchxrayvision as xrv
 parser = argparse.ArgumentParser(description='X-RAY Pathology Detection')
 parser.add_argument('--seed', type=int, default=0, help='')
 parser.add_argument('--dataset_dir', type=str, default="./data/")
-parser.add_argument('--ssl_ckpt_dir', type=str, default="")
 parser.add_argument('--lr', type=float, default=0.001, help='')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='')
 
@@ -217,7 +216,7 @@ for dataloader in train_loader:
         if train_loader.index(dataloader) == train_datas.index(data):
             tr_l = DataLoader(xrv.datasets.SubsetDataset(dataset=data, idxs=range(cfg.batch_size*cfg.num_batches)),
                            batch_size=cfg.batch_size,
-                           shuffle=True,
+                           shuffle=cfg.shuffle,
                            num_workers=cfg.num_workers,
                            pin_memory=True,
                            drop_last=True)
@@ -225,7 +224,7 @@ for dataloader in train_loader:
 
 valid_loader = DataLoader(valid_data,
                        batch_size=cfg.batch_size,
-                       shuffle=True,
+                       shuffle=cfg.shuffle,
                        num_workers=cfg.num_workers,
                        pin_memory=True,
                        drop_last=True)

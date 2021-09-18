@@ -68,14 +68,6 @@ print(f'Using device: {device}')
 
 transforms = torchvision.transforms.Compose([xrv.datasets.XRayCenterCrop(), xrv.datasets.XRayResizer(112)])
 
-#xrv.datasets.default_pathologies = [
-#                             'Cardiomegaly',
-#                             'Effusion',
-#                             'Edema',
-#                             'Consolidation',
-#                                   ]
-
-
 if "nih" in cfg.dataset_name:
     ### Load NIH Dataset ### 
     NIH_dataset = xrv.datasets.NIH_Dataset(
