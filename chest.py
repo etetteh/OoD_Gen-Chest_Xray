@@ -28,7 +28,7 @@ import sklearn, sklearn.model_selection
 from sklearn.metrics import roc_auc_score, accuracy_score
 
 import torchxrayvision as xrv
-
+from utils import write_results
 
 parser = argparse.ArgumentParser(description='X-RAY Pathology Detection')
 parser.add_argument('--seed', type=int, default=0, help='')
@@ -540,7 +540,7 @@ for model_name in model_zoo:
     model = model.to(device)
 
     print("\n Training Model \n")
-    output_dir = "merge_train-" + str(cfg.merge_train) + "_split-" +  str(cfg.split) + "_" + model_name + "_valid-" + cfg.valid_data + "/"
+    output_dir = model_name + "_merge_train-" + str(cfg.merge_train) + "_split-" +  str(cfg.split) + "_valid-" + cfg.valid_data + "_seed-" + str(cfg.seed) + "/"
         
     metrics, best_metric, = main(model, model_name, output_dir, num_epochs=cfg.num_epochs)
     print(f"Best validation AUC: {best_metric:4.4f}")
@@ -565,24 +565,25 @@ for model_name in model_zoo:
     print(f"Average AUC for all pathologies {test_auc:4.4f}")
     print(f"Test loss: {test_loss:4.4f}")                                 
     print(f"AUC for each task {[round(x, 4) for x in task_aucs]}")
+        
+    test_filename = "test_results_.csv"
+    field_names = ['Model', 'Test_AVG_AUC', 'Test_loss', 'Cardiomegaly', 'Effusion', 'Edema', 'Consolidation', ]
+    model_name = model_name + "_merge_train-" + str(cfg.merge_train) + "_split-" +  str(cfg.split) + "_valid-" + cfg.valid_data + "_seed-" + str(cfg.seed)
+    results = {
+            'Model': model_name,
+            'Test_AVG_AUC': round(test_auc, 2), 
+            'Test_loss': round(test_loss, 2),  
+            'Cardiomegaly': round(task_aucs[0], 2),
+            'Effusion': round(task_aucs[1], 2),
+            'Edema': round(task_aucs[2], 2),
+            'Consolidation': round(task_aucs[3], 2),
+            }
+    
+    if os.path.exists(test_filename):
+        write_results(filename=test_filename, field_names=field_names, results=results)
+    else:
+        with open(test_filename, 'w') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=field_names)
 
-    test_filename = output_dir + output_dir.strip("/") + "_test_results.csv"
-
-    with open(test_filename, 'w') as csvfile:
-        field_names = ['Test_loss', 'Test_AVG_AUC',
-                       'Cardiomegaly',
-                       'Effusion',
-                       'Edema',
-                       'Consolidation',
-                       ]
-        writer = csv.DictWriter(csvfile, fieldnames=field_names)
-
-        writer.writeheader()
-        writer.writerow({
-                         'Test_loss': round(test_loss, 4), 
-                         'Test_AVG_AUC': round(test_auc, 4), 
-                         'Cardiomegaly': round(task_aucs[0], 4),
-                         'Effusion': round(task_aucs[1], 4),
-                         'Edema': round(task_aucs[2], 4),
-                         'Consolidation': round(task_aucs[3], 4),
-                        })
+            writer.writeheader()
+            writer.writerow(results)
