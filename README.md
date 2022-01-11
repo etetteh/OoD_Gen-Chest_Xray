@@ -1,5 +1,5 @@
 # OoD_Gen-Chest_Xray
-Out-of-Distribution Generalization of Chest X-ray Using Risk Extrapolation
+This repository is the official implementation of the paper [Multi-Domain Balanced Sampling Improves Out-of-Distribution Generalization of Chest X-ray Pathology Prediction Models](https://arxiv.org/abs/2112.13734) accepted at [Medical Imaging meets NeurIPS 2021](https://sites.google.com/view/med-neurips-2021)
 
 ## Requirements (Installations)
 Install the following libraries/packages with `pip`
