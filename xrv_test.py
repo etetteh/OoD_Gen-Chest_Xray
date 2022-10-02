@@ -1,11 +1,12 @@
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+import os
 import csv
+import json
 import pickle
 import random
 import argparse
-import os
 import numpy as np
 import pandas as pd
 
@@ -39,7 +40,7 @@ def inference(name, model, device, data_loader, criterion, limit=None):
         task_outputs[task] = []
         task_targets[task] = []
         
-    with torch.no_grad():
+    with torch.inference_mode():
         t = tqdm(data_loader)
         for batch_idx, samples in enumerate(t):
             if limit and (batch_idx >= limit):
@@ -94,8 +95,9 @@ def main(cfg):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    test_data = utils.load_data_inference(cfg)
+    cfg.pathologies = ["Cardiomegaly", "Effusion", "Edema", "Consolidation"]
     
+    test_data = utils.load_inference_data(cfg)
     test_loader = DataLoader(test_data,
                            batch_size=cfg.batch_size,
                            shuffle=SequentialSampler(test_data),
@@ -116,28 +118,31 @@ def main(cfg):
                                      limit=cfg.num_batches//2
                                     )
 
-    print(f"Average AUC for all pathologies {test_auc:4.4f}")
+    task_aucs = [round(x, 4) for x in task_aucs]
+    results = dict(zip(cfg.pathologies, task_aucs))
+    
     print(f"Test loss: {test_loss:4.4f}")                                 
-    print(f"AUC for each task {[round(x, 4) for x in task_aucs]}")
+    print(json.dumps({"AUC per task": results}))
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser(description='X-RAY Pathology Detection')
-    parser.add_argument('--seed', type=int, default=0, help='')
-    parser.add_argument('--dataset_dir', type=str, default="./data/")
-    parser.add_argument('--test_data', type=str, default="nih")
-    parser.add_argument('--device', type=str, default="cpu")
-
+    parser = argparse.ArgumentParser(description='X-RAY Pathology Classification')
+    parser.add_argument("--seed", type=int, default=0, help="Seed for RNG")
+    parser.add_argument("--dataset_dir", type=str, default="./data/", help="Datasets directory")
+    parser.add_argument("--test_data", type=str, default=" ", help="Test dataset")
+    parser.add_argument("--device", type=str, default="cpu", help="Compute architecture to use. One of ['cpu', 'cuda']")
+    parser.add_argument("--cache_dataset", action="store_true", help="Whether or not to cache the dataset")
+    
     ### Data loader
-    parser.add_argument('--data_resize', type=int, default=112)
-    parser.add_argument('--batch_size', type=int, default=64, help='')
-    parser.add_argument('--num_workers', type=int, default=0, help='')
-    parser.add_argument('--num_batches', type=int, default=430, help='')
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--num_workers", type=int, default=0, help="Number of workers to run the experiment")
+    parser.add_argument("--num_batches", type=int, default=430, help="Number of mini-batches to use")
 
-    ### Data Augmentation                  
-    parser.add_argument('--data_aug_rot', type=int, default=45, help='')
-    parser.add_argument('--data_aug_trans', type=float, default=0.15, help='')
-    parser.add_argument('--data_aug_scale', type=float, default=0.15, help='')
+    ### Data Augmentation               
+    parser.add_argument("--data_resize", type=int, default=112, help="Size of each imgae sample to use")
+    parser.add_argument("--data_aug_rot", type=int, default=45, help="Rotation degree for data augmentation")
+    parser.add_argument("--data_aug_trans", type=float, default=0.15, help="Translation ratio for data augmentation")
+    parser.add_argument("--data_aug_scale", type=float, default=0.15, help="Scale ratio for data augmentation")
                         
     return parser
                         
