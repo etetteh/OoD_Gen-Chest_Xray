@@ -20,11 +20,6 @@ import utils
 import numpy as np
 import torchxrayvision as xrv
 
-wandb.init(project="chest-pathology-prediction")
-wandb.run.name = wandb.run.id
-wandb.run.save()
-wandb.config.lr = 0.001
-
 
 def tqdm(*args, **kwargs):
     if hasattr(tqdm_base, '_instances'):
@@ -170,15 +165,12 @@ def main(cfg):
     cfg.num_labels = len(cfg.pathologies)
 
     model = torchvision.models.__dict__[cfg.arch](weights=cfg.weights)
-
     if cfg.feature_extract:
         for param in model.parameters():
             param.requires_grad = False
 
     model = utils.create_model(cfg, model)
     model.to(device)
-
-    model_copy = model
 
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
 
@@ -200,21 +192,20 @@ def main(cfg):
     )
 
     best_metric = 0.0
-    if cfg.resume:
-        checkpoint = torch.load(cfg.resume, map_location="cpu")
-        model_copy.load_state_dict(checkpoint["model"])
+    if os.path.isfile(os.path.join(output_dir, "checkpoint.pth")):
+        checkpoint = torch.load(os.path.join(output_dir, "checkpoint.pth"), map_location="cpu")
+        model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
         cfg.start_epoch = checkpoint["epoch"] + 1
         best_metric = checkpoint["best_auc"]
+        results = checkpoint["best_task_aucs"]
 
     if cfg.test_only:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
         test_data = utils.load_inference_data(cfg)
-        xrv.datasets.relabel_dataset(cfg.pathologies, test_data)
-
         test_loader = DataLoader(test_data,
                                  batch_size=cfg.batch_size,
                                  sampler=SequentialSampler(test_data),
@@ -320,7 +311,7 @@ def main(cfg):
             print(json.dumps(results))
 
         checkpoint = {
-            "model": model_copy.state_dict(),
+            "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "lr_scheduler": lr_scheduler.state_dict(),
             "epoch": epoch,
@@ -328,10 +319,7 @@ def main(cfg):
             "best_task_aucs": results,
             "config": cfg,
         }
-        torch.save(checkpoint, os.path.join(output_dir, f"{cfg.arch}_epoch-{epoch}.pth"))
         torch.save(checkpoint, os.path.join(output_dir, "checkpoint.pth"))
-
-        torch.save(checkpoint, os.path.join(wandb.run.dir, f"{cfg.arch}_epoch-{epoch}.pth"))
         torch.save(checkpoint, os.path.join(wandb.run.dir, "checkpoint.pth"))
 
         wandb.log({"Train Loss": train_loss})
@@ -364,6 +352,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--val_data", type=str, default=" ",
                         help="validation dataset. Should be different from the train datas. One of ['cx', 'mc', 'nih', 'pc']")
     parser.add_argument("--test_data", type=str, default=" ", help="Test dataset. One of ['cx', 'mc', 'nih', 'pc']")
+    parser.add_argument("--cache_dataset", action="store_true", help="Whether or not to cache the dataset")
 
     parser.add_argument("--weights", type=str, default="DEFAULT",
                         help="Pretrained weights toload PyTorch model. One of ['DEFAULT', 'None']")
@@ -395,5 +384,9 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     cfg = get_args_parser().parse_args()
+    wandb.init(project="chest-pathology-classification")
+    wandb.run.name = wandb.run.id
+    wandb.run.save()
+    wandb.config.lr = 0.001
     wandb.config.update(cfg)
     main(cfg)

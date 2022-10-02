@@ -20,12 +20,6 @@ import numpy as np
 import torchxrayvision as xrv
 
 
-wandb.init(project="chest-pathology-prediction-quantization-aware-training")
-wandb.run.name = wandb.run.id
-wandb.run.save()
-wandb.config.lr = 0.001
-
-
 def tqdm(*args, **kwargs):
     if hasattr(tqdm_base, '_instances'):
         for instance in list(tqdm_base._instances):
@@ -170,7 +164,6 @@ def main(cfg):
     cfg.num_labels = len(cfg.pathologies)
     
     model = torchvision.models.quantization.resnet50(weights=cfg.weights, quantize=False)
-    
     if cfg.feature_extract:
         for param in model.parameters():
             param.requires_grad = True
@@ -182,8 +175,6 @@ def main(cfg):
     model[0].qconfig = torch.quantization.get_default_qat_qconfig(cfg.backend)
     model = torch.quantization.prepare_qat(model, inplace=True)
     model.to(device)
-    
-    model_copy = model
     
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
     
@@ -205,22 +196,20 @@ def main(cfg):
             )
     
     best_metric = 0.0
-    if cfg.resume:
-        checkpoint = torch.load(cfg.resume, map_location="cpu")
-        model_copy.load_state_dict(checkpoint["model"])
+    if os.path.isfile(os.path.join(output_dir, "checkpoint.pth")):
+        checkpoint = torch.load(os.path.join(output_dir, "checkpoint.pth"), map_location="cpu")
+        model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
         cfg.start_epoch = checkpoint["epoch"] + 1
         best_metric = checkpoint["best_auc"]
+        results = checkpoint["best_task_aucs"]
         
     if cfg.test_only:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         
-        pathologies = ["Cardiomegaly", "Effusion", "Edema", "Consolidation"]
-        test_data = utils.load_inference_data(cfg)
-        xrv.datasets.relabel_dataset(pathologies, test_data)
-        
+        test_data = utils.load_inference_data(cfg)        
         test_loader = DataLoader(test_data,
                            batch_size=cfg.batch_size,
                            sampler = SequentialSampler(test_data),
@@ -233,8 +222,8 @@ def main(cfg):
         quantized_test_model.to(torch.device("cpu"))
         torch.ao.quantization.convert(quantized_test_model, inplace=True)
         
-        if os.path.isfile(os.path.join(output_dir, "best_model.pth")):
-            state = torch.load(os.path.join(output_dir, "best_model.pth"),
+        if os.path.isfile(os.path.join(output_dir, "best_quantized_model.pth")):
+            state = torch.load(os.path.join(output_dir, "best_quantized_model.pth"),
                                map_location="cpu")
             quantized_test_model.load_state_dict(state)
         test_auc, test_loss, task_aucs = evaluate(
@@ -326,7 +315,7 @@ def main(cfg):
                 limit=cfg.num_batches//2
             )
         
-            quantized_eval_model = copy.deepcopy(model_copy)
+            quantized_eval_model = copy.deepcopy(model)
             quantized_eval_model.eval()
             quantized_eval_model.to(torch.device("cpu"))
             torch.ao.quantization.convert(quantized_eval_model, inplace=True)
@@ -343,9 +332,10 @@ def main(cfg):
         
         if val_auc > best_metric:
             best_metric = val_auc
-            torch.save(quantized_eval_model.state_dict(), os.path.join(output_dir, "best_model.pth"))
-            torch.save(quantized_eval_model.state_dict(), os.path.join(wandb.run.dir, 
-                                                                       "best_quantized_model.pth"))
+            torch.save(quantized_eval_model.state_dict(), 
+                       os.path.join(output_dir, "best_quantized_model.pth"))
+            torch.save(quantized_eval_model.state_dict(), 
+                       os.path.join(wandb.run.dir, "best_quantized_model.pth"))
             results = {"Best Val Task AUCs": {"Cardiomegaly": round(task_aucs[0],4), 
                                               "Effusion": round(task_aucs[1],4), 
                                               "Edema": round(task_aucs[2],4), 
@@ -356,7 +346,7 @@ def main(cfg):
             print(json.dumps(results))
             
         checkpoint = {
-            "model": model_copy.state_dict(),
+            "model": model.state_dict(),
             "eval_model": quantized_eval_model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "lr_scheduler": lr_scheduler.state_dict(),
@@ -365,10 +355,7 @@ def main(cfg):
             "best_task_aucs": results,
             "config": cfg,
         }
-        torch.save(checkpoint, os.path.join(output_dir, f"resnet50_epoch-{epoch}_auc-{val_auc:.4f}.pth"))
         torch.save(checkpoint, os.path.join(output_dir, "checkpoint.pth"))
-        
-        torch.save(checkpoint, os.path.join(wandb.run.dir, f"resnet50_epoch-{epoch}_auc-{val_auc:.4f}.pth"))
         torch.save(checkpoint, os.path.join(wandb.run.dir, "checkpoint.pth"))
         
         wandb.log({"Train Loss": train_loss})
@@ -399,6 +386,7 @@ def get_args_parser(add_help=True):
     parser.add_argument("--val_data", type=str, default=" ", 
                 help="validation dataset. Should be different from the train datas. One of ['cx', 'mc', 'nih', 'pc']")
     parser.add_argument("--test_data", type=str, default=" ", help="Test dataset. One of ['cx', 'mc', 'nih', 'pc']")
+    parser.add_argument("--cache_dataset", action="store_true", help="Whether or not to cache the dataset")
 
     parser.add_argument("--weights", type=str, default="DEFAULT", 
                         help="Pretrained weights toload PyTorch model. One of ['DEFAULT', 'None']")
@@ -436,6 +424,11 @@ def get_args_parser(add_help=True):
 
 if __name__ == "__main__":
     cfg = get_args_parser().parse_args()
+    wandb.init(project="chest-pathology-classification-quantization-aware-training")
+    wandb.run.name = wandb.run.id
+    wandb.run.save()
+    wandb.config.lr = 0.001
+
     wandb.config.update(cfg)
     main(cfg)
     
