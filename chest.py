@@ -1,6 +1,6 @@
 import torch.multiprocessing
 
-torch.multiprocessing.set_sharing_strategy('file_system')
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 import os, copy, time, datetime
 import random
@@ -22,7 +22,7 @@ import torchxrayvision as xrv
 
 
 def tqdm(*args, **kwargs):
-    if hasattr(tqdm_base, '_instances'):
+    if hasattr(tqdm_base, "_instances"):
         for instance in list(tqdm_base._instances):
             tqdm_base._decr_instances(instance)
     return tqdm_base(*args, **kwargs)
@@ -79,7 +79,7 @@ def train_one_epoch(num_batches, epoch, model, device, train_loader, criterion, 
         optimizer.step()
 
         avg_loss.append(train_nll.detach().cpu().numpy())
-        t.set_description(f"Epoch {epoch + 1} - Train - Loss = {np.mean(avg_loss):4.4f}")
+        t.set_description(f"🏋 Training - Epoch {epoch + 1}: Loss = {np.mean(avg_loss):4.4f}")
     return np.mean(avg_loss)
 
 
@@ -122,7 +122,9 @@ def evaluate(name, epoch, model, device, data_loader, criterion, limit=None):
             avg_loss.append(loss.detach().cpu().numpy())
 
             if epoch is not None:
-                t.set_description(f"Epoch {epoch + 1} - {name} - Loss = {np.mean(avg_loss):4.4f}")
+                t.set_description(f"📦 {name} - Epoch {epoch + 1}: Loss = {np.mean(avg_loss):4.4f}")
+            else:
+                t.set_description(f"🎁 {name}: Loss = {np.mean(avg_loss):4.4f}")
 
         for task in range(len(task_targets)):
             task_outputs[task] = np.concatenate(task_outputs[task])
@@ -139,7 +141,7 @@ def evaluate(name, epoch, model, device, data_loader, criterion, limit=None):
     auc = np.mean(task_aucs[~np.isnan(task_aucs)])
 
     if epoch is not None:
-        print(f'Epoch {epoch + 1} - {name} - Avg AUC = {auc:4.4f}')
+        print(f"{name} - Epoch {epoch + 1}: Avg AUC = {auc:4.4f}")
 
     return auc, np.mean(avg_loss), task_aucs
 
@@ -153,7 +155,7 @@ def main(cfg):
         torch.cuda.manual_seed_all(cfg.seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
+    
     device = torch.device(cfg.device)
     output_dir = f"{cfg.arch}_mergetrain-{cfg.merge_train}_traindata-{'_'.join(cfg.train_datas)}_valdata-{cfg.val_data}"
     if not os.path.exists(output_dir):
@@ -205,7 +207,9 @@ def main(cfg):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        test_data = utils.load_inference_data(cfg)
+        datasets = utils.load_data(cfg)
+        test_data = datasets[cfg.test_data]
+        
         test_loader = DataLoader(test_data,
                                  batch_size=cfg.batch_size,
                                  sampler=SequentialSampler(test_data),
@@ -242,7 +246,7 @@ def main(cfg):
         datasets = utils.load_data(cfg)
         train_datas = [datasets[data] for data in cfg.train_datas]
         valid_data = datasets[cfg.val_data]
-
+        
         if cfg.merge_train:
             cmerge = xrv.datasets.Merge_Dataset(train_datas)
             dmerge = xrv.datasets.Merge_Dataset(train_datas)
@@ -269,7 +273,7 @@ def main(cfg):
                                 )
 
     print(f"\nOutput directory: {output_dir}")
-    print(f"\nUsing device: {device}")
+    print(f"\nUsing {device} device")
 
     wandb.watch(model)
     start_time = time.time()
@@ -288,7 +292,7 @@ def main(cfg):
 
         with torch.inference_mode():
             val_auc, val_loss, task_aucs = evaluate(
-                name="Val",
+                name="Validation",
                 epoch=epoch,
                 model=model,
                 device=device,
@@ -301,13 +305,13 @@ def main(cfg):
             best_metric = val_auc
             torch.save(model.state_dict(), os.path.join(output_dir, "best_model.pth"))
             torch.save(model.state_dict(), os.path.join(wandb.run.dir, "best_model.pth"))
-            results = {"Best Val Task AUCs": {"Cardiomegaly": round(task_aucs[0], 4),
+            results = {"Best Validation Task AUCs": {"Cardiomegaly": round(task_aucs[0], 4),
                                               "Effusion": round(task_aucs[1], 4),
                                               "Edema": round(task_aucs[2], 4),
                                               "Consolidation": round(task_aucs[3], 4)
                                               }
                        }
-            wandb.log({"Val results": results})
+            wandb.log({"Validation results": results})
             print(json.dumps(results))
 
         checkpoint = {
@@ -336,20 +340,20 @@ def main(cfg):
 def get_args_parser(add_help=True):
     parser = argparse.ArgumentParser(description="Chest X-RAY Pathology Classification", add_help=add_help)
 
-    parser.add_argument("--arch", type=str, default="densenet121",
+    parser.add_argument("--arch", type=str, default="densenet121", required=True, 
                         help="Model architecture name. One of [densenet121, resnet50]")
     parser.add_argument("--start_epoch", type=int, default=0,
                         help="The starting epoch. automatically assigned when resuming training")
     parser.add_argument("--num_epochs", type=int, default=200, help="Number of passes through the whole dataset")
     parser.add_argument("--resume", type=str, help="A model checkpoint to resume training from")
     parser.add_argument("--seed", type=int, default=0, help="Seed for RNG")
-    parser.add_argument("--merge_train", action="store_true",
+    parser.add_argument("--merge_train", action="store_true", required=True, 
                         help="Whether to merge train datasets (baseline) or not merge and sample mini batches from each set")
 
-    parser.add_argument("--dataset_dir", type=str, default="./data/", help="Datasets directory")
-    parser.add_argument("--train_datas", nargs="+",
+    parser.add_argument("--dataset_dir", type=str, default="./data/", required=True, help="Datasets directory")
+    parser.add_argument("--train_datas", nargs="+", required=True,  
                         help="List of training datasets. pass only two of ['cx', 'mc', 'nih', 'pc'] at a time")
-    parser.add_argument("--val_data", type=str, default=" ",
+    parser.add_argument("--val_data", type=str, default=" ", required=True, 
                         help="validation dataset. Should be different from the train datas. One of ['cx', 'mc', 'nih', 'pc']")
     parser.add_argument("--test_data", type=str, default=" ", help="Test dataset. One of ['cx', 'mc', 'nih', 'pc']")
     parser.add_argument("--cache_dataset", action="store_true", help="Whether or not to cache the dataset")
@@ -388,5 +392,7 @@ if __name__ == "__main__":
     wandb.run.name = wandb.run.id
     wandb.run.save()
     wandb.config.lr = 0.001
+
     wandb.config.update(cfg)
+    
     main(cfg)

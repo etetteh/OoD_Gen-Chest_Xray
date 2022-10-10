@@ -79,7 +79,7 @@ def inference(name, model, device, data_loader, criterion, limit=None):
                 task_aucs.append(np.nan)
     task_aucs = np.asarray(task_aucs)
     auc = np.mean(task_aucs[~np.isnan(task_aucs)])
-    print(f'{name} - Avg AUC = {auc:4.4f}')
+    print(f"🎁 {name}: Avg AUC = {auc:4.4f}")
     return auc, np.mean(avg_loss), task_aucs
 
 
@@ -97,7 +97,12 @@ def main(cfg):
 
     cfg.pathologies = ["Cardiomegaly", "Effusion", "Edema", "Consolidation"]
     
-    test_data = utils.load_inference_data(cfg)
+    cfg.train_datas = [] #just placeholder needed to run the code
+    cfg.val_data = " " #just placeholder needed to run the code
+    
+    datasets = utils.load_data(cfg)
+    test_data = datasets[cfg.test_data]
+    
     test_loader = DataLoader(test_data,
                            batch_size=cfg.batch_size,
                            shuffle=SequentialSampler(test_data),
@@ -110,7 +115,7 @@ def main(cfg):
 
     criterion = torch.nn.BCEWithLogitsLoss()
 
-    test_auc, test_loss, task_aucs = inference(name='Test',
+    test_auc, test_loss, task_aucs = inference(name='Inference',
                                      model=model,
                                      device=device,
                                      data_loader=test_loader,
@@ -126,10 +131,11 @@ def main(cfg):
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser(description='X-RAY Pathology Classification')
+    parser = argparse.ArgumentParser(description="Chest X-RAY Pathology Classification")
+    
     parser.add_argument("--seed", type=int, default=0, help="Seed for RNG")
-    parser.add_argument("--dataset_dir", type=str, default="./data/", help="Datasets directory")
-    parser.add_argument("--test_data", type=str, default=" ", help="Test dataset")
+    parser.add_argument("--dataset_dir", type=str, default="./data/", required=True, help="Datasets directory")
+    parser.add_argument("--test_data", type=str, default=" ", required=True, help="Test dataset")
     parser.add_argument("--device", type=str, default="cpu", help="Compute architecture to use. One of ['cpu', 'cuda']")
     parser.add_argument("--cache_dataset", action="store_true", help="Whether or not to cache the dataset")
     
@@ -150,3 +156,4 @@ def get_args_parser():
 if __name__ == "__main__":
     cfg = get_args_parser().parse_args()
     main(cfg)
+    
