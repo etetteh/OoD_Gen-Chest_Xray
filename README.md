@@ -1,16 +1,17 @@
-# OoD_Gen-Chest_Xray
-This repository is the official implementation of the paper [Multi-Domain Balanced Sampling Improves Out-of-Distribution Generalization of Chest X-ray Pathology Prediction Models](https://arxiv.org/abs/2112.13734) accepted at [Medical Imaging meets NeurIPS 2021](https://sites.google.com/view/med-neurips-2021)
+# Multi-Domain Balanced Sampling
+This repository is the official implementation of the paper [Multi-Domain Balanced Sampling Improves Out-of-Distribution Generalization of Chest X-ray Pathology Prediction Models](http://www.cse.cuhk.edu.hk/~qdou/public/medneurips2021/77_chest_ood_med_neurips_2021.pdf) accepted at [Medical Imaging meets NeurIPS 2021](https://sites.google.com/view/med-neurips-2021) (Med-NeurIPS 2021). \
+The arXiv version can be found [here](https://arxiv.org/abs/2112.13734).
 
 
 ## September 2022 Updates - Quantization Aware Training
 We have added the script `chest_quantize.py` to allow users run the experiment on a CPU with a smaller model size. For now, only ResNet-50 is supported. \
 One can train a quantized model by running:
 ```
-python chest_quantize.py --train_datas cx pc --val_data mc --seed 0
+python chest_quantize.py --dataset_dir <data dir> --train_datas cx pc --val_data mc --seed 0
 ```
 Test the model by running:
 ```
-python chest_quantize.py --train_datas cx pc --val_data mc --seed 0 --test_only --test_data nih
+python chest_quantize.py --dataset_dir <data dir> --train_datas cx pc --val_data mc --seed 0 --test_only --test_data nih
 ```
 
 
